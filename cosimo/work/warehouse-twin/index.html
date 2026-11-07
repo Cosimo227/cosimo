@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse digital twin — real-time 3D operations, run by AI agents</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2316160f'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-size='30' fill='%23f6f3ea' text-anchor='middle'%3ECP%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#f6f3ea">
+<meta name="description" content="Password protected page.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f6f3ea; --ink:#16160f; --muted:#6b6656; --rule:#d8d2c0;
+    --accent:#2f5245; --accent-soft:#dfe7dd;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+    font-weight:400; -webkit-font-smoothing:antialiased;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(47,82,69,.07), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(47,82,69,.05), transparent 60%);
+  }
+  main{position:relative; width:100%; max-width:420px}
+  .label{
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--muted);
+    display:flex; align-items:center; gap:10px; margin-bottom:22px;
+  }
+  .label::after{content:""; flex:1; height:1px; background:var(--rule)}
+  h1{
+    font-family:Fraunces,Georgia,serif; font-weight:400; font-size:clamp(28px,6vw,38px);
+    line-height:1.1; letter-spacing:-.02em; margin:0 0 10px;
+  }
+  p{color:var(--muted); font-size:15px; line-height:1.55; margin:0 0 26px}
+  form{display:flex; flex-direction:column; gap:12px}
+  input{
+    width:100%; padding:13px 15px; font:inherit; font-size:15px; color:var(--ink);
+    background:#fffef9; border:1px solid var(--rule); border-radius:3px;
+    outline:none; transition:border-color .15s, box-shadow .15s;
+  }
+  input:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+  button{
+    padding:13px 16px; font:inherit; font-size:14px; font-weight:500;
+    letter-spacing:.01em; color:var(--paper); background:var(--ink);
+    border:1px solid var(--ink); border-radius:3px; cursor:pointer;
+    transition:background .15s, transform .05s;
+  }
+  button:hover{background:var(--accent); border-color:var(--accent)}
+  button:active{transform:translateY(1px)}
+  button[disabled]{opacity:.55; cursor:progress}
+  .err{min-height:18px; font-size:13px; color:#8c2f22; margin:0}
+  .foot{
+    margin-top:30px; padding-top:16px; border-top:1px solid var(--rule);
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
+    letter-spacing:.06em; color:var(--muted);
+  }
+  .boot{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px; color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <div class="label">Private page</div>
+  <h1>Cosimo Piancastelli</h1>
+  <p id="sub">This page is password protected. Enter the password to read it.</p>
+  <form id="f" autocomplete="off">
+    <input id="pw" type="password" name="password" placeholder="Password" autocomplete="current-password" required aria-label="Password">
+    <button id="go" type="submit">Unlock</button>
+    <p class="err" id="err" role="alert" aria-live="polite"></p>
+  </form>
+  <div class="foot">Digital twin concept · 3D operations · AI agents</div>
+</main>
+<script>
+(function(){
+  var KEY = "cp.pass.v1";
+  var payload = null;
+  var form = document.getElementById("f");
+  var pw = document.getElementById("pw");
+  var go = document.getElementById("go");
+  var err = document.getElementById("err");
+  var sub = document.getElementById("sub");
+
+  function show(html){
+    document.open(); document.write(html); document.close();
+  }
+  function b64bytes(s){
+    var bin = atob(s), out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  async function getPayload(){
+    if (payload) return payload;
+    var r = await fetch("content.enc", {cache:"no-store"});
+    if (!r.ok) throw new Error("payload " + r.status);
+    payload = b64bytes((await r.text()).trim());
+    return payload;
+  }
+
+  async function unlock(pass){
+    var raw = await getPayload();
+    var salt = raw.slice(0, 16), iv = raw.slice(16, 28), ct = raw.slice(28);
+    var base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+    var key = await crypto.subtle.deriveKey(
+      {name:"PBKDF2", salt: salt, iterations: 310000, hash:"SHA-256"},
+      base, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+    var plain = await crypto.subtle.decrypt({name:"AES-GCM", iv: iv}, key, ct);
+    return new TextDecoder().decode(plain);
+  }
+
+  function remember(pass){
+    try { sessionStorage.setItem(KEY, pass); } catch (e) {}
+  }
+  function forget(){
+    try { sessionStorage.removeItem(KEY); } catch (e) {}
+  }
+
+  var saved = null;
+  try { saved = sessionStorage.getItem(KEY); } catch (e) {}
+  if (saved){
+    sub.className = "boot";
+    sub.textContent = "Restoring session…";
+    go.disabled = true;
+    unlock(saved).then(function(html){ show(html); }).catch(function(){
+      forget();
+      sub.className = "";
+      sub.textContent = "This page is password protected. Enter the password to read it.";
+      go.disabled = false;
+      pw.focus();
+    });
+  } else {
+    pw.focus();
+  }
+
+  form.addEventListener("submit", async function(ev){
+    ev.preventDefault();
+    err.textContent = "";
+    go.disabled = true; go.textContent = "Checking…";
+    try {
+      var html = await unlock(pw.value);
+      remember(pw.value);
+      show(html);
+    } catch (e) {
+      err.textContent = (String(e && e.message || e).indexOf("payload") === 0)
+        ? "Could not load the protected page. Reload and try again."
+        : "That password is not correct.";
+      go.disabled = false; go.textContent = "Unlock";
+      pw.select();
+    }
+  });
+})();
+</script>
+</body>
+</html>

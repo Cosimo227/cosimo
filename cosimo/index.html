@@ -4,11 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cosimo Piancastelli — Business Intelligence, CEVA Logistics Berlin</title>
-<meta name="description" content="Cosimo Piancastelli — business intelligence specialist at CEVA Logistics, Berlin. Reporting, simulation and logistics data.">
 <meta name="robots" content="noindex">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2316160f'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-size='30' fill='%23f6f3ea' text-anchor='middle'%3ECP%3C/text%3E%3C/svg%3E">
 <meta name="theme-color" content="#f6f3ea">
-<link rel="canonical" href="https://cosimop.de/cosimo/">
+<meta name="description" content="Password protected page.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -65,13 +64,14 @@
     font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
     letter-spacing:.06em; color:var(--muted);
   }
+  .boot{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px; color:var(--muted)}
 </style>
 </head>
 <body>
 <main>
   <div class="label">Private page</div>
   <h1>Cosimo Piancastelli</h1>
-  <p>This page is password protected. Enter the password to read it.</p>
+  <p id="sub">This page is password protected. Enter the password to read it.</p>
   <form id="f" autocomplete="off">
     <input id="pw" type="password" name="password" placeholder="Password" autocomplete="current-password" required aria-label="Password">
     <button id="go" type="submit">Unlock</button>
@@ -81,22 +81,17 @@
 </main>
 <script>
 (function(){
-  var KEY = "cp.unlocked.v1";
+  var KEY = "cp.pass.v1";
   var payload = null;
   var form = document.getElementById("f");
   var pw = document.getElementById("pw");
   var go = document.getElementById("go");
   var err = document.getElementById("err");
+  var sub = document.getElementById("sub");
 
   function show(html){
     document.open(); document.write(html); document.close();
   }
-  try {
-    var cached = sessionStorage.getItem(KEY);
-    if (cached) { show(cached); return; }
-  } catch (e) {}
-  pw.focus();
-
   function b64bytes(s){
     var bin = atob(s), out = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
@@ -122,13 +117,37 @@
     return new TextDecoder().decode(plain);
   }
 
+  function remember(pass){
+    try { sessionStorage.setItem(KEY, pass); } catch (e) {}
+  }
+  function forget(){
+    try { sessionStorage.removeItem(KEY); } catch (e) {}
+  }
+
+  var saved = null;
+  try { saved = sessionStorage.getItem(KEY); } catch (e) {}
+  if (saved){
+    sub.className = "boot";
+    sub.textContent = "Restoring session…";
+    go.disabled = true;
+    unlock(saved).then(function(html){ show(html); }).catch(function(){
+      forget();
+      sub.className = "";
+      sub.textContent = "This page is password protected. Enter the password to read it.";
+      go.disabled = false;
+      pw.focus();
+    });
+  } else {
+    pw.focus();
+  }
+
   form.addEventListener("submit", async function(ev){
     ev.preventDefault();
     err.textContent = "";
     go.disabled = true; go.textContent = "Checking…";
     try {
       var html = await unlock(pw.value);
-      try { sessionStorage.setItem(KEY, html); } catch (e) {}
+      remember(pw.value);
       show(html);
     } catch (e) {
       err.textContent = (String(e && e.message || e).indexOf("payload") === 0)
